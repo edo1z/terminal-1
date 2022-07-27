@@ -1,45 +1,33 @@
-#![allow(unused_assignments)]
+use core_graphics::display::CGDisplay;
+use png::{BitDepth, ColorType, Encoder};
+use std::fs;
 
-use crossterm::{
-    execute,
-    style::{Color, Print, ResetColor, SetBackgroundColor, SetForegroundColor},
-    Result,
-};
-use display_info::DisplayInfo;
-use std::env;
-use std::io::stdout;
-
-fn main() -> Result<()> {
-    let term_program = env::var("TERM_PROGRAM").unwrap();
-    let os_name = get_os();
-    println!("\nYour OS is {}.", os_name);
-    print!("Your terminal is ");
-    execute!(
-        stdout(),
-        SetForegroundColor(Color::White),
-        SetBackgroundColor(Color::Green),
-        Print(term_program),
-        ResetColor
-    )?;
-
-    let all_display = DisplayInfo::all().unwrap();
-    for display in all_display {
-        println!("\n----- Display {} -----", display.id);
-        println!("width: {}", display.width);
-        println!("height: {}", display.height);
-        println!("scale_factor: {}", display.scale_factor);
-        println!("is_primary: {}", display.is_primary);
+fn main() {
+    let display_ids = CGDisplay::active_displays().ok().unwrap();
+    for display_id in display_ids {
+        let cg_display = CGDisplay::new(display_id);
+        let cg_img = cg_display.image().unwrap();
+        let bgra = Vec::from(cg_img.data().bytes());
+        let img = make_png(cg_img.width() as u32, cg_img.height() as u32, bgra);
+        fs::write("target/screen.png", &img).unwrap();
     }
-
-    Ok(())
 }
 
-#[cfg(target_os = "macos")]
-fn get_os() -> String {
-    String::from("mac")
-}
-
-#[cfg(target_os = "linux")]
-fn get_os() -> String {
-    String::from("linux")
+fn make_png(width: u32, height: u32, bgra: Vec<u8>) -> Vec<u8> {
+    let mut buffer = Vec::new();
+    let mut bytes = bgra.clone();
+    for i in (0..bytes.len()).step_by(4) {
+        let b = bytes[i];
+        let r = bytes[i + 2];
+        bytes[i] = r;
+        bytes[i + 2] = b;
+        bytes[i + 3] = 255;
+    }
+    let mut encoder = Encoder::new(&mut buffer, width, height);
+    encoder.set_color(ColorType::Rgba);
+    encoder.set_depth(BitDepth::Eight);
+    let mut writer = encoder.write_header().unwrap();
+    writer.write_image_data(&bytes).unwrap();
+    writer.finish().unwrap();
+    buffer
 }
