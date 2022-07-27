@@ -4,13 +4,11 @@ use std::fs;
 
 fn main() {
     let display_ids = CGDisplay::active_displays().ok().unwrap();
-    for display_id in display_ids {
-        let cg_display = CGDisplay::new(display_id);
-        let cg_img = cg_display.image().unwrap();
-        let bgra = Vec::from(cg_img.data().bytes());
-        let img = make_png(cg_img.width() as u32, cg_img.height() as u32, bgra);
-        fs::write("target/screen.png", &img).unwrap();
-    }
+    let cg_display = CGDisplay::new(display_ids[0]);
+    let cg_img = cg_display.image().unwrap();
+    let bgra = Vec::from(cg_img.data().bytes());
+    let img = make_png(cg_img.width() as u32, cg_img.height() as u32, bgra);
+    fs::write("target/screen.png", &img).unwrap();
 }
 
 fn make_png(width: u32, height: u32, bgra: Vec<u8>) -> Vec<u8> {
